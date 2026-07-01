@@ -1,13 +1,14 @@
-// A-1 Renovations — production data model (marketplace + auth + 3 panels).
-// PostgreSQL via Prisma. Replaces the legacy Phase-2 schema.
+// A-1 Renovations — Supabase-backed data model (marketplace + auth + 3 panels).
+// Prisma uses the PostgreSQL provider because Supabase is PostgreSQL-compatible.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {

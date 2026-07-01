@@ -3,7 +3,8 @@
 // zero-cost dev/CI fallback.
 
 import { config } from '../config.ts';
-import type { ModelAdapter } from './adapter.ts';
+import type { AnalyzeOptions, ImageRef, ModelAdapter, ProjectAnalyzeInput, RawScopeAnalysis } from './adapter.ts';
+import type { VisionAnalysis } from '../types.ts';
 import { MockAdapter } from './mockAdapter.ts';
 import { OpenAIAdapter } from './openAIAdapter.ts';
 import type { ImageRenderer } from './renderAdapter.ts';
@@ -17,6 +18,37 @@ export function getModelAdapter(): ModelAdapter {
   if (cached) return cached;
   cached = config.modelProvider === 'openai' ? new OpenAIAdapter() : new MockAdapter();
   return cached;
+}
+
+function fallbackReason(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+function canFallback(adapter: ModelAdapter): boolean {
+  return adapter.id !== 'mock-v1';
+}
+
+export async function analyzeProject(input: ProjectAnalyzeInput): Promise<RawScopeAnalysis> {
+  const adapter = getModelAdapter();
+  try {
+    return await adapter.analyzeProject(input);
+  } catch (err) {
+    if (!canFallback(adapter)) throw err;
+    console.warn(`[AI] ${adapter.id} project analysis failed; using market-calibrated fallback: ${fallbackReason(err)}`);
+    return new MockAdapter().analyzeProject(input);
+  }
+}
+
+export async function analyzeImages(images: ImageRef[], opts: AnalyzeOptions): Promise<VisionAnalysis> {
+  const adapter = getModelAdapter();
+  try {
+    return await adapter.analyzeImages(images, opts);
+  } catch (err) {
+    if (!canFallback(adapter)) throw err;
+    console.warn(`[AI] ${adapter.id} image analysis failed; using deterministic fallback: ${fallbackReason(err)}`);
+    return new MockAdapter().analyzeImages(images, opts);
+  }
 }
 
 let cachedRenderer: ImageRenderer | null = null;

@@ -61,8 +61,19 @@ estimate accurate). Drive every number from them:
   9. Custom vs standard installation.
   10. Visual evidence in the photos (use it; don't assume beyond what's visible).
 
-Low = builder-grade execution, Medium = mid-range, High = premium/luxury — as the realistic TOTAL
-installed cost (labor + materials). Be realistic, neither inflated nor lowballed.
+Pricing discipline:
+- Treat common public-market pricing as the anchor, not luxury/full-gut pricing by default.
+- Thumbtack-style public cost ranges put many common jobs around: full kitchen remodel ~$8k–$30k,
+  roof replacement ~$5k–$17k, basement finishing ~$5k–$25k, interior painting often under ~$2.5k
+  for common room/house-painting requests, with larger or premium scopes scaling upward.
+- Only exceed those bands when the description/photos clearly justify it: large size, moving plumbing,
+  structural changes, custom materials, water/mold damage, access constraints, or premium selections.
+- If the project is a refresh/repair/partial replacement, price the partial scope. Do not assume a full
+  gut remodel just because the category is kitchen or bathroom.
+
+Low = budget/professional-basic execution, Medium = common mid-range, High = premium but still plausible
+for the described scope — as the realistic TOTAL installed cost (labor + materials). Be realistic, neither
+inflated nor lowballed.
 
 CONFIDENCE & ASSUMPTIONS (critical for accuracy):
 - List the concrete ASSUMPTIONS your numbers depend on (size, grade, condition, what you couldn't see).

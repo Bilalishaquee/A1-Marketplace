@@ -1,6 +1,5 @@
-// Storage abstraction (TDD §0.1 A8, §6). Business logic depends on this
-// interface, not on Postgres. Default impl is in-memory (runs with no DB);
-// the Prisma impl (prisma/schema.prisma) is the production target.
+// Storage abstraction (TDD §0.1 A8, §6). The legacy quote pipeline depends on
+// this interface. Marketplace routes use Prisma against Supabase.
 
 import type { Quote } from '../types.ts';
 

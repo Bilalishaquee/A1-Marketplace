@@ -7,7 +7,7 @@
 import type { RenderStyle } from '../types.ts';
 
 export interface RenderBaseImage {
-  base64?: string;    // inline bytes (dev / private S3) — preferred for editing
+  base64?: string;    // inline bytes (dev / private storage) — preferred for editing
   mediaType?: string; // e.g. "image/jpeg"
   url?: string;       // remote/presigned URL (prod)
 }

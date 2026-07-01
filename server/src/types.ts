@@ -198,7 +198,7 @@ export interface Rendering {
   id: string;
   style: RenderStyle;
   // Directly displayable by the front-end: a data: URL (dev / mock + inline
-  // model output) or a remote URL (prod, once renders are offloaded to S3).
+  // model output) or a remote URL (prod, once renders are offloaded to storage).
   imageDataUrl: string | null;
   sourceImageId: string | null; // which uploaded photo it was based on
   prompt: string;               // the grounded prompt used (auditable)

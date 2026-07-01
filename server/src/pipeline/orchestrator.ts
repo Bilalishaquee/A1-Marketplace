@@ -4,26 +4,23 @@
 // QuoteUpload staged messages).
 
 import type { Quote } from '../types.ts';
-import { getModelAdapter } from '../ai/index.ts';
+import { analyzeImages, analyzeProject } from '../ai/index.ts';
 import { aggregateConfidence, deriveMeasurements } from '../engines/measurement.ts';
 import { estimate } from '../engines/cost.ts';
 import { computeScopeEstimate } from '../engines/scopeEngine.ts';
 import { quoteEvents, type StageEvent } from '../sse.ts';
-import { blobStore } from '../store/blobStore.ts';
 import type { ImageRef } from '../ai/adapter.ts';
 import type { EventRepo, QuoteRepo } from '../store/repo.ts';
 import { findSimilarProjects, formatRagContext } from '../ai/rag.ts';
+import { imageRefForKey } from '../storage/supabaseStorage.ts';
 
-function imageRefsFor(quote: Quote): ImageRef[] {
-  return quote.images
+async function imageRefsFor(quote: Quote): Promise<ImageRef[]> {
+  return Promise.all(quote.images
     .filter(i => i.status === 'usable')
     .map(i => {
       const key = i.s3KeyNormalized ?? i.s3KeyOriginal;
-      const blob = blobStore.get(key);
-      return blob
-        ? { base64: blob.buf.toString('base64'), mediaType: blob.mediaType, contentHash: i.contentHash ?? undefined }
-        : { url: key, contentHash: i.contentHash ?? undefined };
-    });
+      return imageRefForKey(key, i.contentHash);
+    }));
 }
 
 export interface OrchestratorDeps {
@@ -54,8 +51,6 @@ export async function runScopeAnalysis(quoteId: string, deps: OrchestratorDeps):
     await deps.quotes.update(quoteId, { status: 'analyzing' });
     emit({ stage: 'analyzing_surfaces', pct: 30, message: 'Reviewing your project…' });
 
-    const adapter = getModelAdapter();
-
     // RAG: retrieve similar past A-1 projects to ground the estimate in real outcomes.
     const similarProjects = await findSimilarProjects(
       quote.description,
@@ -64,9 +59,9 @@ export async function runScopeAnalysis(quoteId: string, deps: OrchestratorDeps):
     ).catch(() => []);
     const ragContext = similarProjects.length > 0 ? formatRagContext(similarProjects) : null;
 
-    const raw = await adapter.analyzeProject({
+    const raw = await analyzeProject({
       description: quote.description,
-      images: imageRefsFor(quote),
+      images: await imageRefsFor(quote),
       categoryHint: quote.categoryKey,
       zip: quote.location?.zip ?? null,
       ragContext,
@@ -110,15 +105,11 @@ export async function runEstimation(quoteId: string, deps: OrchestratorDeps): Pr
 
     // 1. Vision analysis (TDD §2, §3). Prefer real bytes (base64) when we have
     // them in the dev blob store; fall back to the (presigned) URL in prod.
-    const adapter = getModelAdapter();
-    const imageRefs: ImageRef[] = usable.map(i => {
+    const imageRefs: ImageRef[] = await Promise.all(usable.map(i => {
       const key = i.s3KeyNormalized ?? i.s3KeyOriginal;
-      const blob = blobStore.get(key);
-      return blob
-        ? { base64: blob.buf.toString('base64'), mediaType: blob.mediaType, contentHash: i.contentHash ?? undefined }
-        : { url: key, contentHash: i.contentHash ?? undefined };
-    });
-    const analysis = await adapter.analyzeImages(imageRefs,
+      return imageRefForKey(key, i.contentHash);
+    }));
+    const analysis = await analyzeImages(imageRefs,
       { serviceHint: quote.serviceType, regionZip: quote.regionZip });
 
     emit({
