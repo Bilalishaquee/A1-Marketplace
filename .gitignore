@@ -9,8 +9,6 @@ build/
 coverage/
 
 # Environment and local secrets
-.env
-.env.*
 !.env.example
 
 # Logs and runtime artifacts
@@ -23,7 +21,6 @@ pnpm-debug.log*
 # OS/editor files
 .DS_Store
 Thumbs.db
-.vscode/
 .idea/
 
 # Local database/runtime data
@@ -31,3 +28,4 @@ Thumbs.db
 *.sqlite3
 *.db
 
+config.bat

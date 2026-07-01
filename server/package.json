@@ -13,21 +13,26 @@
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "test:live": "node --env-file-if-exists=.env --experimental-strip-types scripts/liveCheck.ts",
     "typecheck": "tsc --noEmit",
-    "db:up": "docker compose up -d postgres",
+    "db:up": "echo 'Database is managed by Supabase. Use npm run db:deploy for schema migrations.'",
     "db:status": "prisma migrate status",
     "db:migrate": "prisma migrate dev --skip-generate",
+    "db:deploy": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed:admin": "node --env-file-if-exists=.env --experimental-strip-types scripts/seedAdmin.ts",
     "seed:training": "node --env-file-if-exists=.env --experimental-strip-types scripts/seedTrainingExamples.ts",
+    "seed:market": "node --env-file-if-exists=.env --experimental-strip-types scripts/seedPublicMarketExamples.ts",
+    "supabase:storage": "node --env-file-if-exists=.env --experimental-strip-types scripts/setupSupabaseStorage.ts",
     "eval": "node --env-file-if-exists=.env --experimental-strip-types scripts/evalScope.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.0",
     "bcryptjs": "^3.0.3",
     "express": "^4.22.2",
     "jsonwebtoken": "^9.0.3",
     "openai": "^4.104.0",
     "socket.io": "^4.8.3",
+    "undici": "^8.5.0",
     "zod": "^3.25.76"
   },
   "optionalDependencies": {

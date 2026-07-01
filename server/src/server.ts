@@ -29,7 +29,7 @@ let quotes: QuoteRepo;
 let events: EventRepo;
 let outcomes: OutcomeRepo;
 // The marketplace domain (/v1/projects, bids, threads, appointments, admin) runs
-// on real Postgres via Prisma. The legacy AI-quote routes (/v1/quotes) still use
+// on Supabase via Prisma. The legacy AI-quote routes (/v1/quotes) still use
 // the in-memory repos below until the front-ends move to /v1/projects.
 quotes = new MemoryQuoteRepo();
 events = new MemoryEventRepo();
@@ -56,8 +56,8 @@ app.get('/health', (_req, res) => res.json({
   store: config.store, schema: '2025-06-09.1',
 }));
 
-// Dev presigned-upload target: stores bytes in the blob store so the model can
-// receive real pixels as base64 (TDD §7.1). Prod uses real S3 + presigned URLs.
+// Dev signed-upload fallback: stores bytes in the blob store so the model can
+// receive real pixels as base64 (TDD §7.1). Production uses Supabase Storage.
 app.put('/v1/mock-upload/:key', express.raw({ type: '*/*', limit: '15mb' }), (req, res) => {
   const key = decodeURIComponent(req.params.key);
   const mediaType = req.get('content-type') || 'image/jpeg';
@@ -86,7 +86,7 @@ app.get('/v1/taxonomy', (_req, res) => res.json({
 }));
 
 app.use('/v1/auth', authRouter());
-// Marketplace domain (real Postgres + RBAC + real-time).
+// Marketplace domain (Supabase database + RBAC + real-time).
 app.use('/v1/projects', projectsRouter());
 app.use('/v1/bids', bidsRouter());
 app.use('/v1/threads', messagesRouter());

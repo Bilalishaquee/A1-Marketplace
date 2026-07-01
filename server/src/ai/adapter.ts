@@ -5,11 +5,11 @@
 import type { MaterialQuality, VisionAnalysis } from '../types.ts';
 
 export interface ImageRef {
-  // In production these are S3 keys / presigned URLs. In dev the mock ignores
-  // pixels and is driven by `serviceHint` for deterministic output.
+  // In production these are Supabase Storage keys / signed URLs. In dev the mock
+  // ignores pixels and is driven by `serviceHint` for deterministic output.
   url?: string;
   // Alternative to url: inline image bytes (used when the model API can't reach
-  // the URL, e.g. private S3 without presign, or local testing).
+  // the URL, e.g. private storage without a signed URL, or local testing).
   base64?: string;
   mediaType?: string; // e.g. "image/jpeg"
   contentHash?: string;

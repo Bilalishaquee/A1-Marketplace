@@ -2,8 +2,8 @@
 // returns actionable feedback to the UI ("too dark", "too blurry") rather than
 // silently producing a bad quote.
 //
-// In dev (no real bytes / no S3), this is a metadata-level gate. In production
-// it inspects the normalized image (blur via Laplacian variance, exposure
+// In dev (no real bytes), this is a metadata-level gate. In production it
+// inspects the normalized image (blur via Laplacian variance, exposure
 // histogram, min-resolution, perceptual-hash de-dup). Those checks live behind
 // this same interface so the orchestrator is unchanged.
 
