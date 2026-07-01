@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: a1-renovations-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: a1user
+      POSTGRES_PASSWORD: a1pass
+      POSTGRES_DB: a1db
+    ports:
+      - "5433:5432"
+    volumes:
+      - a1_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U a1user -d a1db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  a1_postgres_data:

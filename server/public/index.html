@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A-1 AI Engine — Live Test Console</title>
+<style>
+  :root { --tq:#0ea5a4; --tq2:#0f766e; --ink:#0f172a; --mut:#64748b; --line:#e2e8f0; --bg:#f8fafc; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:linear-gradient(90deg,var(--tq),var(--tq2)); color:#fff; padding:18px 24px; }
+  header h1 { margin:0; font-size:18px; } header p { margin:2px 0 0; opacity:.85; font-size:13px; }
+  .wrap { max-width:980px; margin:24px auto; padding:0 16px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .card h2 { margin:0 0 12px; font-size:14px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); }
+  label { display:block; font-size:13px; color:var(--mut); margin:10px 0 4px; }
+  select,input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:9px; font:inherit; }
+  .row { display:flex; gap:10px; } .row>div { flex:1; }
+  button { background:var(--tq); color:#fff; border:0; padding:11px 16px; border-radius:10px; font:inherit; font-weight:600; cursor:pointer; margin-top:14px; }
+  button.sec { background:#fff; color:var(--tq2); border:1px solid var(--tq); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .full { grid-column:1/3; }
+  .bar { height:8px; background:#e2e8f0; border-radius:6px; overflow:hidden; margin:6px 0 10px; }
+  .bar > i { display:block; height:100%; width:0; background:var(--tq); transition:width .3s; }
+  .stage { font-size:13px; color:var(--mut); min-height:18px; }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:10px; overflow:auto; font-size:12px; max-height:260px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td,th { padding:7px 8px; border-bottom:1px solid var(--line); text-align:left; }
+  td.r,th.r { text-align:right; }
+  .tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:99px; }
+  .tag.l { background:#cffafe; color:#0e7490; } .tag.m { background:#ede9fe; color:#6d28d9; }
+  .total { font-size:30px; font-weight:800; } .muted { color:var(--mut); font-size:13px; }
+  .chip { display:inline-block; background:#f1f5f9; padding:3px 9px; border-radius:99px; font-size:12px; margin:2px; }
+  .qa { display:flex; gap:8px; } .qa input { flex:1; } .qa button { margin:0; }
+  .msg { background:#f1f5f9; border-radius:10px; padding:8px 11px; margin:6px 0; font-size:13px; }
+  .msg.ai { background:#ecfeff; }
+  .ok { color:#0e7490; } .bad { color:#dc2626; }
+</style>
+</head>
+<body>
+<header>
+  <h1>A-1 Renovations — AI Engine Live Console</h1>
+  <p>Phase 2 · drives the real backend API (create → quality gate → async estimate → SSE → quote → Q&A)</p>
+</header>
+
+<div class="wrap">
+  <!-- INPUT -->
+  <div class="card">
+    <h2>1 · New Quote</h2>
+    <label>Service type</label>
+    <select id="service">
+      <option value="kitchen_remodel">Kitchen Remodel</option>
+      <option value="bathroom_renovation">Bathroom Renovation</option>
+      <option value="flooring_installation">Flooring Installation</option>
+      <option value="basement_finishing">Basement Finishing</option>
+      <option value="painting_drywall">Painting & Drywall</option>
+      <option value="roof_replacement">Roof Replacement</option>
+      <option value="general_renovation">General Renovation</option>
+    </select>
+    <label>Region ZIP</label><input id="zip" value="90001" />
+    <label>Photos (real bytes are sent to the model)</label>
+    <input id="files" type="file" accept="image/*" multiple />
+    <div style="margin-top:6px"><button id="sample" class="sec" style="margin:0">＋ Use sample kitchen photo</button> <span id="picked" class="muted"></span></div>
+    <label style="margin-top:12px"><input type="checkbox" id="badphoto" style="width:auto" /> Simulate a blurry/dark photo (test the quality gate)</label>
+    <button id="run">Run AI Estimate ▶</button>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="stage" id="stage">Idle.</div>
+  </div>
+
+  <!-- DETECTION -->
+  <div class="card">
+    <h2>2 · What the AI saw</h2>
+    <div id="detection" class="muted">Run an estimate to see detected surfaces, materials & damage.</div>
+  </div>
+
+  <!-- QUOTE -->
+  <div class="card full">
+    <h2>3 · Estimate</h2>
+    <div id="quote" class="muted">No quote yet.</div>
+  </div>
+
+  <!-- Q&A -->
+  <div class="card full">
+    <h2>4 · Ask the AI assistant</h2>
+    <div id="chat"></div>
+    <div class="qa">
+      <input id="qmsg" placeholder="e.g. How long will this take? Can you make it cheaper?" />
+      <button id="ask" class="sec">Ask</button>
+    </div>
+  </div>
+
+  <!-- RAW -->
+  <div class="card full">
+    <h2>Raw API responses</h2>
+    <pre id="raw">—</pre>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let quoteId = null;
+const log = o => { $('#raw').textContent = (typeof o==='string'?o:JSON.stringify(o,null,2)) + "\n\n" + $('#raw').textContent; };
+const money = n => '$' + Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: body?{'content-type':'application/json'}:{}, body: body?JSON.stringify(body):undefined });
+  const j = await r.json().catch(()=>({}));
+  log({ ['→ '+method+' '+path]: r.status, body: j });
+  return { status:r.status, j };
+}
+
+let pickedBlobs = [];   // File/Blob objects to upload
+$('#files').onchange = (e) => { pickedBlobs = [...e.target.files]; $('#picked').textContent = pickedBlobs.length+' file(s) selected'; };
+$('#sample').onclick = async (e) => {
+  e.preventDefault(); $('#sample').disabled = true; $('#picked').textContent = 'loading sample…';
+  const r = await fetch('/v1/dev/sample-image'); const b = await r.blob();
+  pickedBlobs = [new File([b], 'sample-kitchen.jpg', { type: 'image/jpeg' })];
+  $('#picked').textContent = 'sample kitchen photo ready'; $('#sample').disabled = false;
+};
+
+function dims(file) { return new Promise(res => { const i = new Image(); i.onload = () => res({ width:i.naturalWidth, height:i.naturalHeight }); i.onerror = () => res({}); i.src = URL.createObjectURL(file); }); }
+
+$('#run').onclick = async () => {
+  if (pickedBlobs.length === 0) { $('#stage').innerHTML = '<span class="bad">Pick a photo or click “Use sample kitchen photo” first.</span>'; return; }
+  $('#run').disabled = true; $('#prog').style.width='0'; $('#detection').innerHTML=''; $('#quote').innerHTML=''; $('#chat').innerHTML='';
+  $('#stage').textContent = 'Creating draft…';
+  const bad = $('#badphoto').checked;
+
+  const create = await api('POST','/v1/quotes',{ serviceType:$('#service').value, regionZip:$('#zip').value, imageCount:pickedBlobs.length });
+  quoteId = create.j.quoteId;
+
+  // upload real bytes to each presigned URL
+  $('#stage').textContent = 'Uploading photo(s)…';
+  const images = [];
+  for (let i = 0; i < pickedBlobs.length; i++) {
+    const f = pickedBlobs[i], up = create.j.uploads[i];
+    await fetch(up.uploadUrl, { method:'PUT', headers:{ 'content-type': f.type || 'image/jpeg' }, body: f });
+    const d = await dims(f);
+    images.push(bad
+      ? { s3Key:up.s3Key, byteSize:f.size, ...d, blurScore:10, brightness:20 }   // force quality-gate fail
+      : { s3Key:up.s3Key, byteSize:f.size, ...d });
+  }
+  const conf = await api('POST',`/v1/quotes/${quoteId}/images/confirm`,{ images });
+  if (conf.j.rejectedCount > 0) $('#stage').innerHTML = '<span class="bad">Photo rejected: '+conf.j.images.flatMap(x=>x.quality.issues).join(' ')+'</span>';
+
+  $('#stage').textContent = 'Sending to AI…';
+  const est = await api('POST',`/v1/quotes/${quoteId}/estimate`);
+  if (est.status === 422) { $('#stage').innerHTML='<span class="bad">422 — no usable photos. Uncheck the bad-photo box and retry.</span>'; $('#run').disabled=false; return; }
+
+  // live SSE progress
+  const ev = new EventSource(`/v1/quotes/${quoteId}/events`);
+  ev.onmessage = (m) => {
+    const d = JSON.parse(m.data);
+    $('#prog').style.width = d.pct + '%';
+    $('#stage').textContent = d.message;
+    if (d.partial?.surfaces) renderDetection(d.partial);
+    if (d.stage === 'done') { ev.close(); loadQuote(); }
+    if (d.stage === 'failed') { ev.close(); $('#stage').innerHTML='<span class="bad">'+(d.error||'failed')+'</span>'; $('#run').disabled=false; }
+  };
+};
+
+function renderDetection(p) {
+  const s = (p.surfaces||[]).map(x=>`<tr><td>${x.type}</td><td>${x.material} <span class="muted">(${x.grade}, ${x.condition})</span></td><td class="r">${x.approxAreaSqft??'—'} sqft</td><td class="r">${Math.round(x.confidence*100)}%</td></tr>`).join('');
+  const d = (p.damage||[]).map(x=>`<span class="chip">⚠ ${x.type.replace('_',' ')} · ${x.severity}</span>`).join('') || '<span class="muted">none detected</span>';
+  $('#detection').innerHTML = `<table><tr><th>Surface</th><th>Material</th><th class="r">Area</th><th class="r">Conf.</th></tr>${s}</table><div style="margin-top:10px">${d}</div>`;
+}
+
+async function loadQuote() {
+  const { j } = await api('GET',`/v1/quotes/${quoteId}`);
+  const e = j.estimate; if (!e) return;
+  const rows = e.lineItems.map(li=>`<tr><td><span class="tag ${li.category==='Labor'?'l':'m'}">${li.category}</span></td><td>${li.item}${li.hrs?` <span class="muted">· ${li.hrs} hrs</span>`:''}</td><td class="r">${money(li.cost)}</td></tr>`).join('');
+  $('#quote').innerHTML = `
+    <div class="total">${money(e.total)} <span class="muted" style="font-size:15px">range ${money(e.totalLow)} – ${money(e.totalHigh)}</span></div>
+    <div class="muted">Confidence ${Math.round(e.confidence*100)}% · status <b>${j.status}</b> · ${e.lineItems.length} line items</div>
+    <table style="margin-top:12px">${rows}
+      <tr><td></td><td class="r muted">Subtotal</td><td class="r">${money(e.subtotal)}</td></tr>
+      <tr><td></td><td class="r muted">Contingency</td><td class="r">${money(e.contingency)}</td></tr>
+      <tr><td></td><td class="r muted">Overhead</td><td class="r">${money(e.overhead)}</td></tr>
+      <tr><td></td><td class="r"><b>Total</b></td><td class="r"><b>${money(e.total)}</b></td></tr>
+    </table>
+    <div style="margin-top:12px">${(e.rationale||[]).map(x=>`<div class="msg">💡 ${x}</div>`).join('')}</div>
+    <div class="msg" style="background:#fff7ed">ℹ️ ${e.framing}</div>`;
+  $('#run').disabled = false;
+}
+
+$('#ask').onclick = async () => {
+  const msg = $('#qmsg').value.trim(); if (!msg || !quoteId) return;
+  $('#qmsg').value='';
+  $('#chat').innerHTML += `<div class="msg">🧑 ${msg}</div>`;
+  const { j } = await api('POST',`/v1/quotes/${quoteId}/qa`,{ message:msg });
+  $('#chat').innerHTML += `<div class="msg ai">🤖 ${j.answer}</div>`;
+};
+$('#qmsg').addEventListener('keydown', e => { if (e.key==='Enter') $('#ask').click(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+// A-1 Renovations — production data model (marketplace + auth + 3 panels).
+// PostgreSQL via Prisma. Replaces the legacy Phase-2 schema.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  PROVIDER
+  ADMIN
+}
+
+enum ProjectStatus {
+  DRAFT
+  ANALYZING
+  ESTIMATED
+  POSTED
+  MATCHED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+enum AppointmentStatus {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CLIENT)
+  name         String
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  providerProfile        ProviderProfile?
+  projects               Project[]        @relation("ClientProjects")
+  bids                   Bid[]
+  messages               Message[]
+  sessions               Session[]
+  appointmentsAsClient   Appointment[]    @relation("ClientAppointments")
+  appointmentsAsProvider Appointment[]    @relation("ProviderAppointments")
+
+  // LLM Training relations
+  trainingExamples  TrainingExample[] @relation("TrainingExampleUploader")
+  fineTuningJobs    FineTuningJob[]   @relation("FineTuningJobTrigger")
+  promptTemplates   PromptTemplate[]  @relation("PromptTemplateCreator")
+}
+
+model ProviderProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName       String
+  trades             String[] // taxonomy category keys / trade labels served
+  bio                String?
+  serviceZips        String[]
+  serviceRadiusMiles Int      @default(25)
+  lat                Float?
+  lng                Float?
+  ratingAvg          Float    @default(0)
+  ratingCount        Int      @default(0)
+  verified           Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// Refresh-token sessions (rotating). Access tokens are stateless JWTs.
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  userAgent String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  clientId    String
+  client      User          @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
+  categoryKey String?
+  description String
+  status      ProjectStatus @default(DRAFT)
+
+  // Location (device geolocation — no ZIP question)
+  lat    Float?
+  lng    Float?
+  zip    String?
+  city   String?
+  region String?
+
+  // Homeowner-provided measurement aids (Tier-4 manual / Tier-2 reference object)
+  measuredAreaSqft   Float?
+  hasReferenceObject Boolean @default(false)
+
+  // AI scope estimate (full JSON snapshot) + denormalized range for queries
+  scopeEstimate  Json?
+  urgency        String?
+  priceLowCents  Int?
+  priceMedCents  Int?
+  priceHighCents Int?
+  selectedBudgetCents Int?
+
+  postedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  images       ProjectImage[]
+  bids         Bid[]
+  threads      MessageThread[]
+  appointments Appointment[]
+  events       ProjectEvent[]
+
+  @@index([status])
+  @@index([categoryKey])
+  @@index([clientId])
+}
+
+model ProjectImage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  key       String
+  status    String   @default("usable")
+  quality   Json?
+  createdAt DateTime @default(now())
+}
+
+model Bid {
+  id                    String    @id @default(cuid())
+  projectId             String
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  providerId            String
+  provider              User      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  amountCents           Int
+  message               String?
+  estimatedDurationDays Int?
+  siteVisitRequested    Boolean   @default(false)
+  status                BidStatus @default(PENDING)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([projectId, providerId])
+  @@index([providerId])
+}
+
+model MessageThread {
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId   String
+  providerId String
+  createdAt  DateTime  @default(now())
+  messages   Message[]
+
+  @@unique([projectId, providerId])
+}
+
+model Message {
+  id        String        @id @default(cuid())
+  threadId  String
+  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body      String
+  readAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([threadId])
+}
+
+model Appointment {
+  id           String            @id @default(cuid())
+  projectId    String
+  project      Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId     String
+  client       User              @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
+  providerId   String
+  provider     User              @relation("ProviderAppointments", fields: [providerId], references: [id], onDelete: Cascade)
+  scheduledFor DateTime
+  status       AppointmentStatus @default(REQUESTED)
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([providerId])
+  @@index([clientId])
+}
+
+// Append-only audit log (Phase 6 audit / Phase 7 analytics).
+model ProjectEvent {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor     String
+  type      String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+// ── LLM Training Models ───────────────────────────────────────────────────────
+
+enum TrainingExampleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FineTuningStatus {
+  QUEUED
+  UPLOADING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+// Past real completed project uploaded by admin — used for RAG retrieval and
+// as fine-tuning examples for the OpenAI custom model.
+model TrainingExample {
+  id              String                @id @default(cuid())
+  uploadedById    String
+  uploadedBy      User                  @relation("TrainingExampleUploader", fields: [uploadedById], references: [id])
+  title           String?
+  categoryKey     String
+  description     String
+  zip             String
+  actualLowCents  Int?
+  actualMedCents  Int?
+  actualHighCents Int?
+  durationDays    Int?
+  scopeOfWork     Json?
+  permitsRequired String[] @default([])
+  materialQuality String?
+  notes           String?
+  imageKeys       String[] @default([])
+  embedding       Unsupported("vector")?
+  status          TrainingExampleStatus @default(PENDING)
+  qualityScore    Float?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([categoryKey])
+  @@index([status])
+}
+
+// Fine-tuning job submitted to OpenAI's fine-tuning API.
+model FineTuningJob {
+  id               String           @id @default(cuid())
+  openaiFileId     String?
+  openaiJobId      String?
+  baseModel        String           @default("gpt-4o-mini-2024-07-18")
+  fineTunedModelId String?
+  exampleCount     Int
+  categoryKeys     String[] @default([])
+  promptVersion    String           @default("openai-scope-v1")
+  status           FineTuningStatus @default(QUEUED)
+  metrics          Json?
+  errorMessage     String?
+  triggeredById    String
+  triggeredBy      User             @relation("FineTuningJobTrigger", fields: [triggeredById], references: [id])
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([status])
+}
+
+// System prompt templates — admin edits and activates versions via the
+// Prompt Lab. The active record per key is loaded by the OpenAI adapter.
+model PromptTemplate {
+  id          String   @id @default(cuid())
+  key         String   // "vision" | "scope" | "chat"
+  version     String
+  body        String
+  notes       String?
+  active      Boolean  @default(false)
+  createdById String
+  createdBy   User     @relation("PromptTemplateCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+}
+
+// Active model configuration — points to a fine-tuned model ID when one has
+// been trained and activated by admin. The OpenAI adapter queries this on startup.
+model ModelConfig {
+  id               String    @id @default(cuid())
+  name             String
+  provider         String    @default("openai")
+  baseModelId      String
+  fineTunedModelId String?
+  categoryKeys     String[] @default([])
+  active           Boolean   @default(false)
+  activatedAt      DateTime?
+  activatedById    String?
+  performanceJson  Json?
+  createdAt        DateTime  @default(now())
+
+  @@index([active])
+}

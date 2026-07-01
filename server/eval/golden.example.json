@@ -1,0 +1,30 @@
+[
+  {
+    "id": "kitchen-midrange-la",
+    "description": "Full kitchen remodel, about 180 sq ft. New mid-range shaker cabinets, quartz countertops, tile backsplash, and luxury vinyl plank flooring. Keeping the existing layout.",
+    "categoryKey": "kitchen_remodeling",
+    "location": { "zip": "90012", "city": "Los Angeles" },
+    "actualTotalUsd": 42000
+  },
+  {
+    "id": "bath-walkin-shower-tx",
+    "description": "Convert tub to walk-in shower in a 50 sq ft bathroom, new tile, glass enclosure, and a single vanity. Some water damage around the old tub.",
+    "categoryKey": "bathroom_remodeling",
+    "location": { "zip": "77002", "city": "Houston" },
+    "actualTotalUsd": 14500
+  },
+  {
+    "id": "roof-replace-emergency-fl",
+    "description": "Roof is leaking after a storm, missing shingles on the south slope, need asphalt shingle replacement urgently. ~1800 sq ft roof.",
+    "categoryKey": "roofing",
+    "location": { "zip": "33101", "city": "Miami" },
+    "actualTotalUsd": 16000
+  },
+  {
+    "id": "interior-paint-2br",
+    "description": "Repaint two bedrooms and a hallway, about 600 sq ft of wall, minor drywall patching, standard paint.",
+    "categoryKey": "painting_drywall",
+    "location": { "zip": "60601", "city": "Chicago" },
+    "actualTotalUsd": 3200
+  }
+]

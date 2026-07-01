@@ -1,0 +1,10 @@
+we need to create the web-app a1 renovation LLC
+
+create the web-version for admin with mock dummy data covering all modules.
+Create the web and app version for users and service providers roles.
+
+So for admin there is web version only and for users and service providers role there should be both web and app version.
+
+So be an expert and create the FULL UI covering all modules with mock dummy data for all roles admin, user and service providers in both web and app.
+
+
