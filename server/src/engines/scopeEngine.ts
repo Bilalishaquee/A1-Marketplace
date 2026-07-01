@@ -14,7 +14,9 @@ import type {
 import { SCHEMA_VERSION } from '../types.ts';
 import type { RawScopeAnalysis } from '../ai/adapter.ts';
 import { categoryByKey } from '../data/taxonomy.ts';
-import { CATEGORY_BASELINES } from '../data/categoryPricing.ts';
+import {
+  ACCESS_FACTOR, CATEGORY_BASELINES, CONDITION_FACTOR, MATERIAL_QUALITY_FACTOR,
+} from '../data/categoryPricing.ts';
 import { regionIndex } from '../data/pricing.ts';
 
 // Homeowner-provided measurement (raises the area from a photo guess to a known
@@ -46,6 +48,10 @@ export function computeScopeEstimate(
   const urgencyScore = clamp(Math.round(raw.urgencyScore), 0, 100);
   const isEmergency = raw.emergency || urgencyScore >= 80;
   const emergencyFactor = isEmergency ? 1.10 : 1.0;
+  const quality: MaterialQuality = raw.materialQuality ?? 'mid';
+  const conditionFactor = CONDITION_FACTOR[raw.conditionSeverity ?? 'med'] ?? 1;
+  const accessFactor = ACCESS_FACTOR[raw.accessibility ?? 'moderate'] ?? 1;
+  const qualityFactor = MATERIAL_QUALITY_FACTOR[quality] ?? 1;
 
   // Measurement override: if the homeowner gave a real area, scale the model's
   // price by (known area ÷ the area the model assumed) so the price tracks the
@@ -55,13 +61,32 @@ export function computeScopeEstimate(
   const areaScale = knownArea && llmArea ? Math.max(0.4, Math.min(2.5, knownArea / llmArea)) : 1;
   const factor = regional * emergencyFactor * areaScale;
 
-  // Apply adjustments, then clamp to a sane band for the category so a bad model
-  // response can't produce a wild number.
-  const bandLow = baseline.low * 0.4;
-  const bandHigh = baseline.high * 3.5;
-  let low = clamp(Math.round(raw.priceLowCents * factor), bandLow, bandHigh);
-  let med = clamp(Math.round(raw.priceMedCents * factor), bandLow, bandHigh);
-  let high = clamp(Math.round(raw.priceHighCents * factor), bandLow, bandHigh);
+  const sizeBasis = knownArea ?? llmArea;
+  const sizeScale = sizeBasis && baseline.typicalSizeSqft
+    ? clampFloat(Math.pow(sizeBasis / baseline.typicalSizeSqft, baseline.sizeExponent ?? 0.8), 0.45, 2.4)
+    : 1;
+  const marketFactor = regional * emergencyFactor * qualityFactor * conditionFactor * accessFactor * sizeScale;
+  const market = {
+    low: Math.round(baseline.low * marketFactor),
+    med: Math.round(baseline.med * marketFactor),
+    high: Math.round(baseline.high * marketFactor),
+  };
+  const rawAdjusted = {
+    low: Math.round(raw.priceLowCents * factor),
+    med: Math.round(raw.priceMedCents * factor),
+    high: Math.round(raw.priceHighCents * factor),
+  };
+
+  // Use the LLM for scope/category judgment, but anchor pricing to public-market
+  // data so raw model totals cannot produce inflated homeowner estimates.
+  let low = Math.round(0.78 * market.low + 0.22 * rawAdjusted.low);
+  let med = Math.round(0.78 * market.med + 0.22 * rawAdjusted.med);
+  let high = Math.round(0.78 * market.high + 0.22 * rawAdjusted.high);
+  const guardLow = Math.max(100, Math.round(market.low * 0.72));
+  const guardHigh = Math.max(guardLow, Math.round(market.high * 1.28));
+  low = clamp(low, guardLow, guardHigh);
+  med = clamp(med, guardLow, guardHigh);
+  high = clamp(high, guardLow, guardHigh);
   // Enforce ordering low ≤ med ≤ high.
   const sorted = [low, med, high].sort((a, b) => a - b);
   low = sorted[0]!; med = sorted[1]!; high = sorted[2]!;
@@ -71,7 +96,6 @@ export function computeScopeEstimate(
   const maxDays = Math.max(minDays, Math.round(raw.estimatedDuration?.maxDays || baseline.durMax));
 
   const permits = raw.permitsRequired?.length ? raw.permitsRequired : baseline.permits;
-  const quality: MaterialQuality = raw.materialQuality ?? 'mid';
 
   // Confidence = model self-assessment (incl. ensemble agreement) blended with
   // hard signal — but a real measurement pins down the biggest unknown (size),
@@ -109,7 +133,7 @@ export function computeScopeEstimate(
     confidence,
     assumptions,
     needsReview,
-    rationale: buildRationale(raw, category.label, quality, regional, isEmergency, confidence),
+    rationale: buildRationale(raw, category.label, quality, regional, isEmergency, confidence, sizeScale),
     framing: needsReview
       ? 'Preliminary AI range — we couldn’t pin down every detail from your photos/description, ' +
         'so this band is wide. Add a few more photos or details (or have a pro confirm on-site) for a tighter number.'
@@ -150,12 +174,13 @@ function computeConfidence(raw: RawScopeAnalysis): number {
 
 function buildRationale(
   raw: RawScopeAnalysis, label: string, quality: MaterialQuality,
-  regional: number, emergency: boolean, confidence: number,
+  regional: number, emergency: boolean, confidence: number, sizeScale: number,
 ): string[] {
   const out: string[] = [];
   out.push(`Classified as ${label}${raw.matchedItems?.length ? ` — ${raw.matchedItems.slice(0, 3).join(', ')}${raw.matchedItems.length > 3 ? '…' : ''}` : ''}.`);
   if (raw.approxSizeSqft) out.push(`Approximate size ~${Math.round(raw.approxSizeSqft)} sq ft (photo/description estimate).`);
   out.push(`Assumed ${quality}-grade materials and ${raw.conditionSeverity}-severity condition.`);
+  if (Math.abs(sizeScale - 1) >= 0.08) out.push(`Scaled market pricing ${sizeScale >= 1 ? 'up' : 'down'} for project size.`);
   if (Math.abs(regional - 1) >= 0.03) out.push(`Adjusted ${regional >= 1 ? '+' : ''}${Math.round((regional - 1) * 100)}% for local labor/material costs.`);
   out.push(`Estimate confidence ${(confidence * 100).toFixed(0)}%${confidence < CONFIDENCE_REVIEW_THRESHOLD ? ' — add detail or confirm on-site to tighten it.' : '.'}`);
   if (emergency) out.push('Flagged as urgent/emergency — pricing reflects expedited work.');
@@ -165,5 +190,6 @@ function buildRationale(
 
 function dedupe(xs: string[]): string[] { return [...new Set(xs.filter(Boolean))]; }
 function clamp(n: number, lo: number, hi: number): number { return Math.max(lo, Math.min(hi, Math.round(n))); }
+function clampFloat(n: number, lo: number, hi: number): number { return Math.max(lo, Math.min(hi, n)); }
 function clamp01(n: number): number { return Math.max(0, Math.min(1, n)); }
 function lerp(a: number, b: number, t: number): number { return a + (b - a) * clamp01(t); }

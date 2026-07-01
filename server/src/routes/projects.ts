@@ -1,4 +1,4 @@
-// Marketplace projects API (Postgres). Client lifecycle (describe → estimate →
+// Marketplace projects API (Supabase). Client lifecycle (describe → estimate →
 // post), provider discovery feed, and bids. RBAC + zod throughout.
 
 import { Router, type Request, type Response } from 'express';
@@ -12,6 +12,7 @@ import { quoteEvents } from '../sse.ts';
 import { emitToUser } from '../realtime.ts';
 import { getModelAdapter } from '../ai/index.ts';
 import { requireAuth, requireRole, type AuthedRequest } from '../auth/middleware.ts';
+import { createImageUploadTarget } from '../storage/supabaseStorage.ts';
 
 const err = (res: Response, code: number, message: string, details?: unknown) =>
   res.status(code).json({ error: { code: String(code), message, details } });
@@ -118,10 +119,10 @@ export function projectsRouter(): Router {
         measuredAreaSqft: b.measuredAreaSqft ?? null, hasReferenceObject: !!b.referenceObject,
       },
     });
-    const uploads = Array.from({ length: b.imageCount }, () => {
+    const uploads = await Promise.all(Array.from({ length: b.imageCount }, () => {
       const key = `projects/${project.id}/${crypto.randomUUID()}.jpg`;
-      return { s3Key: key, uploadUrl: `${baseUrl(req)}/v1/mock-upload/${encodeURIComponent(key)}` };
-    });
+      return createImageUploadTarget(key, `${baseUrl(req)}/v1/mock-upload/${encodeURIComponent(key)}`);
+    }));
     res.status(201).json({ projectId: project.id, uploads });
   });
 

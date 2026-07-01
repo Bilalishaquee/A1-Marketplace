@@ -27,20 +27,22 @@ export async function embed(text: string): Promise<number[]> {
 
 // Embed an approved TrainingExample and persist the vector to the DB.
 // Called asynchronously when admin approves an example — non-blocking.
-export async function embedAndStore(exampleId: string): Promise<void> {
+export async function embedAndStore(exampleId: string): Promise<boolean> {
   const example = await prisma.trainingExample.findUnique({ where: { id: exampleId } });
-  if (!example) return;
+  if (!example) return false;
   try {
     const vector = await embed(example.description);
-    // Store as a raw Postgres array string — pgvector accepts this format.
+    // Store as a raw vector literal; pgvector accepts this format.
     await prisma.$executeRaw`
       UPDATE "TrainingExample"
       SET embedding = ${`[${vector.join(',')}]`}::vector
       WHERE id = ${exampleId}
     `;
+    return true;
   } catch (err) {
     // Swallow: embedding is best-effort; RAG just won't find this example until retry.
     console.warn(`[RAG] Failed to embed example ${exampleId}:`, err instanceof Error ? err.message : err);
+    return false;
   }
 }
 

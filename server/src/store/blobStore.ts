@@ -1,7 +1,6 @@
-// Dev image-bytes store (TDD §7.1). In production, uploaded photos live in S3
-// and the model fetches them via presigned URLs. Anthropic's API can't reach a
-// localhost URL, so in dev we keep the bytes in memory and pass them to the
-// model as base64. Same orchestrator code path either way (TDD §1.2).
+// Dev image-bytes store (TDD §7.1). Production uploads live in Supabase Storage
+// and the model fetches them via signed URLs. The local mock upload endpoint
+// keeps bytes in memory and passes them to the model as base64.
 
 interface Blob { buf: Buffer; mediaType: string; }
 

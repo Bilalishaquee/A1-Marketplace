@@ -1,4 +1,4 @@
-// Admin panel data API (role ADMIN). Real lists + stats from Postgres.
+// Admin panel data API (role ADMIN). Real lists + stats from Supabase.
 
 import { Router } from 'express';
 import { prisma } from '../db.ts';

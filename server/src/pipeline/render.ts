@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import type { Quote, Rendering, RenderStyle } from '../types.ts';
 import { getImageRenderer } from '../ai/index.ts';
 import type { RenderInput } from '../ai/renderAdapter.ts';
-import { blobStore } from '../store/blobStore.ts';
+import { imageRefForKey } from '../storage/supabaseStorage.ts';
 
 export interface RenderOptions {
   style: RenderStyle;
@@ -17,17 +17,14 @@ export interface RenderOptions {
 
 // Pull the base photo (preferring real bytes from the dev blob store) and the
 // upgrade list from the priced materials, so the render matches the quote.
-export function buildRenderInput(quote: Quote, opts: RenderOptions): RenderInput {
+export async function buildRenderInput(quote: Quote, opts: RenderOptions): Promise<RenderInput> {
   const usable = quote.images.filter(i => i.status === 'usable');
   const chosen = (opts.sourceImageId && usable.find(i => i.id === opts.sourceImageId)) || usable[0] || null;
 
   let baseImage: RenderInput['baseImage'] = null;
   if (chosen) {
     const key = chosen.s3KeyNormalized ?? chosen.s3KeyOriginal;
-    const blob = blobStore.get(key);
-    baseImage = blob
-      ? { base64: blob.buf.toString('base64'), mediaType: blob.mediaType }
-      : { url: key };
+    baseImage = await imageRefForKey(key);
   }
 
   const analysis = quote.analyses[0];
@@ -56,7 +53,7 @@ export async function generateRendering(quote: Quote, opts: RenderOptions): Prom
     createdAt,
   };
   try {
-    const res = await renderer.render(buildRenderInput(quote, opts));
+    const res = await renderer.render(await buildRenderInput(quote, opts));
     return { ...base, imageDataUrl: res.imageDataUrl, prompt: res.prompt, provider: res.provider, status: 'ready' };
   } catch (err) {
     return {
