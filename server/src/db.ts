@@ -1,4 +1,4 @@
-// Prisma client singleton — the real PostgreSQL data layer.
+// Prisma client singleton for the Supabase-managed database.
 import { PrismaClient } from '@prisma/client';
 
 export const prisma = new PrismaClient({

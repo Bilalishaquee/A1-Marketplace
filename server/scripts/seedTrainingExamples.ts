@@ -72,7 +72,7 @@ const examples = [
   },
   {
     title: 'Phoenix roof replacement - 2,150 sqft asphalt shingle',
-    categoryKey: 'roofing_services',
+    categoryKey: 'roofing',
     zip: '85016',
     description: 'Completed asphalt shingle roof replacement in Phoenix on a one-story home, approximately 2,150 sqft of roof area. Removed one existing shingle layer, replaced damaged sheathing at valleys, installed synthetic underlayment, drip edge, pipe boots, ridge venting, flashing repairs, and architectural shingles. No structural rafter work required.',
     actualLowCents: 1740000,
@@ -177,7 +177,7 @@ const examples = [
   },
   {
     title: 'Boston electrical service panel and kitchen circuit upgrade',
-    categoryKey: 'electrical_services',
+    categoryKey: 'electrical',
     zip: '02130',
     description: 'Completed electrical upgrade in Boston rowhouse. Replaced outdated 100A panel with 200A service panel, added dedicated kitchen appliance circuits, GFCI/AFCI protection, corrected open junctions, labeled circuits, installed new grounding/bonding, and coordinated utility disconnect/reconnect. Existing walls required limited fishing and patching only.',
     actualLowCents: 980000,
@@ -198,7 +198,7 @@ const examples = [
   },
   {
     title: 'Portland water heater relocation and plumbing refresh',
-    categoryKey: 'plumbing_services',
+    categoryKey: 'plumbing',
     zip: '97214',
     description: 'Completed plumbing refresh in Portland basement. Relocated gas water heater six feet, replaced corroded galvanized supply runs with PEX in basement-accessible areas, installed shutoff valves, expansion tank, pan, drain routing, pressure reducing valve, and brought venting and seismic strapping up to local code. No slab trenching required.',
     actualLowCents: 820000,
