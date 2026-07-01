@@ -44,6 +44,7 @@ export const config = {
 
   store: (process.env.STORE ?? 'memory') as 'memory' | 'prisma',
   databaseUrl: process.env.DATABASE_URL ?? '',
+  directDatabaseUrl: process.env.DIRECT_URL ?? '',
 
   // Auth — JWT access + rotating refresh tokens.
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret-change-me',
@@ -51,8 +52,10 @@ export const config = {
   accessTtlMin: num(process.env.ACCESS_TTL_MIN, 15),
   refreshTtlDays: num(process.env.REFRESH_TTL_DAYS, 30),
 
-  s3Bucket: process.env.S3_BUCKET ?? '',
-  s3Region: process.env.S3_REGION ?? 'us-east-1',
+  supabaseUrl: process.env.SUPABASE_URL ?? '',
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+  supabaseStorageBucket: process.env.SUPABASE_STORAGE_BUCKET ?? '',
+  supabaseSignedReadTtlSec: num(process.env.SUPABASE_SIGNED_READ_TTL_SEC, 60 * 60),
 
   defaultRegion: process.env.DEFAULT_REGION ?? '90001',
   maxImagesPerQuote: num(process.env.MAX_IMAGES_PER_QUOTE, 8),

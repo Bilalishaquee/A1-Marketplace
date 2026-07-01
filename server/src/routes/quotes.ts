@@ -14,6 +14,7 @@ import { estimationQueue } from '../queue.ts';
 import { quoteEvents } from '../sse.ts';
 import { getModelAdapter } from '../ai/index.ts';
 import type { EventRepo, OutcomeRepo, QuoteRepo } from '../store/repo.ts';
+import { createImageUploadTarget } from '../storage/supabaseStorage.ts';
 
 const SERVICE_TYPES = [
   'kitchen_remodel', 'bathroom_renovation', 'flooring_installation',
@@ -162,8 +163,8 @@ export function quoteRouter(deps: QuoteRouterDeps): Router {
   const r = Router();
   const orchDeps = { quotes: deps.quotes, events: deps.events };
 
-  // Create draft + issue presigned upload URLs (TDD §7.1). Images go
-  // direct-to-S3, never through the API server. Stubbed in dev.
+  // Create draft + issue signed upload URLs (TDD §7.1). Images go direct to
+  // Supabase Storage when configured, with a local mock endpoint as fallback.
   r.post('/', async (req, res) => {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return err(res, 400, 'invalid request', parsed.error.flatten());
@@ -188,10 +189,10 @@ export function quoteRouter(deps: QuoteRouterDeps): Router {
     await deps.quotes.create(quote);
     await deps.events.append({ quoteId: id, actor: 'client', eventType: 'quote_created', payload: { categoryKey: quote.categoryKey } });
 
-    const uploads = Array.from({ length: body.imageCount }, () => {
+    const uploads = await Promise.all(Array.from({ length: body.imageCount }, () => {
       const key = `quotes/${id}/${randomUUID()}.jpg`;
-      return { s3Key: key, uploadUrl: `${baseUrl(req)}/v1/mock-upload/${encodeURIComponent(key)}` };
-    });
+      return createImageUploadTarget(key, `${baseUrl(req)}/v1/mock-upload/${encodeURIComponent(key)}`);
+    }));
     res.status(201).json({ quoteId: id, uploads });
   });
 

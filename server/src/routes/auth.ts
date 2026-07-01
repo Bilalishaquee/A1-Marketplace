@@ -1,5 +1,5 @@
 // Authentication API — register / login / refresh / logout / me.
-// Real users in Postgres, bcrypt passwords, JWT access + rotating refresh tokens.
+// Real users in Supabase, bcrypt passwords, JWT access + rotating refresh tokens.
 // Works identically for web and mobile (tokens returned in JSON, no cookies).
 
 import { Router, type Request, type Response, type NextFunction } from 'express';

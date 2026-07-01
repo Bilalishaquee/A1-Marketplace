@@ -1,12 +1,12 @@
-// AI scope analysis for a marketplace Project (Postgres-backed). Mirrors the
+// AI scope analysis for a marketplace Project (Supabase-backed). Mirrors the
 // in-memory orchestrator but reads/writes Prisma and emits SSE + ProjectEvents.
 
 import { prisma } from '../db.ts';
-import { getModelAdapter } from '../ai/index.ts';
+import { analyzeProject } from '../ai/index.ts';
 import { computeScopeEstimate } from '../engines/scopeEngine.ts';
 import { quoteEvents, type StageEvent } from '../sse.ts';
-import { blobStore } from '../store/blobStore.ts';
 import type { ImageRef } from '../ai/adapter.ts';
+import { imageRefForKey } from '../storage/supabaseStorage.ts';
 
 export async function runProjectScope(projectId: string): Promise<void> {
   const emit = (ev: StageEvent) => {
@@ -30,13 +30,9 @@ export async function runProjectScope(projectId: string): Promise<void> {
     await prisma.project.update({ where: { id: projectId }, data: { status: 'ANALYZING' } });
     emit({ stage: 'analyzing_surfaces', pct: 30, message: 'Reviewing your project…' });
 
-    const imageRefs: ImageRef[] = usable.map(i => {
-      const blob = blobStore.get(i.key);
-      return blob ? { base64: blob.buf.toString('base64'), mediaType: blob.mediaType } : { url: i.key };
-    });
+    const imageRefs: ImageRef[] = await Promise.all(usable.map(i => imageRefForKey(i.key)));
 
-    const adapter = getModelAdapter();
-    const raw = await adapter.analyzeProject({
+    const raw = await analyzeProject({
       description: project.description,
       images: imageRefs,
       categoryHint: project.categoryKey,

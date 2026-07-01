@@ -35,8 +35,8 @@ function estimatedQuote(): Quote {
   };
 }
 
-test('buildRenderInput grounds the prompt in room type + quoted materials', () => {
-  const input = buildRenderInput(estimatedQuote(), { style: 'modern' });
+test('buildRenderInput grounds the prompt in room type + quoted materials', async () => {
+  const input = await buildRenderInput(estimatedQuote(), { style: 'modern' });
   assert.equal(input.roomType, 'kitchen');
   assert.equal(input.style, 'modern');
   // only Materials line items, with the "(grade)" suffix stripped

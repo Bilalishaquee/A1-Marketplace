@@ -1,5 +1,5 @@
-// In-memory implementations (TDD §6.4). Default store so the engine runs with
-// no Postgres. Swap for a PrismaQuoteRepo in production via the STORE env var.
+// In-memory implementations (TDD §6.4). Default store for the legacy quote
+// engine when running without Supabase.
 
 import { randomUUID } from 'node:crypto';
 import type { Quote } from '../types.ts';
