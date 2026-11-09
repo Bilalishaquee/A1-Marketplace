@@ -23,7 +23,7 @@
     "react-native-screens": "4.25.2"
   },
   "scripts": {
-    "start": "node init && expo start",
+    "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A-1 Renovations \u2014 Phase 2 AI Engine & Estimation Logic backend",
+  "description": "A-1 Renovations — Phase 2 AI Engine & Estimation Logic backend",
   "engines": {
     "node": ">=22.6"
   },
   "scripts": {
-    "dev": "node init && node --env-file-if-exists=.env --experimental-strip-types --watch src/server.ts",
-    "start": "node init && node --env-file-if-exists=.env --experimental-strip-types src/server.ts",
+    "dev": "node --env-file-if-exists=.env --experimental-strip-types --watch src/server.ts",
+    "start": "node --env-file-if-exists=.env --experimental-strip-types src/server.ts",
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "test:live": "node --env-file-if-exists=.env --experimental-strip-types scripts/liveCheck.ts",
     "typecheck": "tsc --noEmit",
